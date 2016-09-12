@@ -1,6 +1,6 @@
-function funLoadUltimaXML(mainDir,channels,timeCorr,xRan)
-% funLoadUltimaXML (v5)
-% 27/11/2015
+function funLoadUltimaXML_v6(mainDir,channels,timeCorr,xRan)
+% funLoadUltimaXML (v6) (suitable for all known Ultima software versions)
+% 12/09/2016
 %
 % Author: Koen Hilgersom (2012)
 %
@@ -15,13 +15,19 @@ function funLoadUltimaXML(mainDir,channels,timeCorr,xRan)
 % relative to the actual local time.
 %
 %---------------------------------------------------------------------------  
-%      Copyright (C) 2012 Technische Universiteit Delft, 
+%      Copyright (C) 2016 Technische Universiteit Delft, 
 %          Koen Hilgersom
 %          K.P.Hilgersom@tudelft.nl (correspondence)
 % 
 %---------------------------------------------------------------------------  
 tmpFN = {'Sto','ASto','Temp'}; %temporary file names for Temperature, Stokes and anti-Stokes data
 for f = 1 : length(tmpFN); if exist([char(tmpFN(f)) '.tmpMF'],'file'); delete([char(tmpFN(f)) '.tmpMF']); end; end
+%
+strListD  = {'logs','log','logData','data'};                        nodeNrD  = NaN(size(strListD));
+strListT  = {'logs','log','DateTimeIndex'};                         nodeNrT  = NaN(size(strListT));
+strListP1 = {'logs','log','customData','probe1Temperature'};        nodeNrP1 = NaN(size(strListP1));
+strListP2 = {'logs','log','customData','probe2Temperature'};        nodeNrP2 = NaN(size(strListP2));
+tstNaN    = false;
 %
 h1 = waitbar(0,'General progress'); lenCh = length(channels(:)); chCnt = 0;
 for z=(channels(:))'
@@ -39,13 +45,19 @@ for z=(channels(:))'
     %
     tic
     for k=1:len
-        XRead           = xmlread([mainDir filesep 'channel ' num2str(z) filesep files(k).name]);
-        child           = XRead.getChildNodes.item(0).item(1).item(XRead.getChildNodes.item(0).item(1).getLength-2);
+        XRead = xmlread([mainDir filesep 'channel ' num2str(z) filesep files(k).name]);
+        if tstNaN == false;                                   
+            nodeNrD = testNodeNumbersNaN(strListD ,nodeNrD ,XRead);      nodeNrT = testNodeNumbersNaN(strListT ,nodeNrT ,XRead);
+            nodeNrP1= testNodeNumbersNaN(strListP1,nodeNrP1,XRead);      nodeNrP2= testNodeNumbersNaN(strListP2,nodeNrP2,XRead);
+            tstNaN  = true;
+        end                       
+        [nodeNrD] = testNodeNumbersChange(strListD, nodeNrD, XRead); % check for changed node numbers for dist/T/Sto/aSto data
+        child           = XRead.getChildNodes.item(nodeNrD(1)).item(nodeNrD(2)).item(nodeNrD(3));
         childNodes      = child.getChildNodes;
-        numChildNodes   = childNodes.getLength/2;
+        numChildNodes   = (childNodes.getLength-nodeNrD(4))/2;
         nEnd            = min(nMax,numChildNodes);
         for n=nMin:min([length(dist),nEnd])
-            Read                 = sscanf(char(child.item(2*(n-1)).item(0).getData),'%f,%f,%f,%f');
+            Read                 = sscanf(char(child.item(2*(n-1)+nodeNrD(4)).item(0).getData),'%f,%f,%f,%f');
             Data(cnt,n-nMin+1,:) = Read(2:4);    
         end        
         if length(dist)<nEnd
@@ -53,7 +65,7 @@ for z=(channels(:))'
             DataTmp = NaN(nEnd-size(Data,2),3);
             distAdd = NaN(nEnd-length(dist),1);
             for n=1:(nEnd-nSt+1)
-                Read         = sscanf(char(child.item(2*(n-1)).item(0).getData),'%f,%f,%f,%f');
+                Read         = sscanf(char(child.item(2*(n-1)+nodeNrD(4)).item(0).getData),'%f,%f,%f,%f');
                 if Read(1)>xR(2); nMax = nSt + n - 2; nEnd = nMax; break; end                
                 distAdd(n)   = Read(1);
                 DataTmp(n,:) = Read(2:4);
@@ -62,21 +74,24 @@ for z=(channels(:))'
             if k==1;    nMin = max([nMin,find(dist<=xR(1),1,'last' )+1]); end
                         nMax = min([nMax,find(dist>=xR(2),1,'first')-1]);
             Data = cat(2,Data,NaN(cntMax,(nEnd-nMin+1)-size(Data,2),3));
-            Data(cnt,(nSt:nEnd)-nSt+1,:) = DataTmp((nSt:nEnd)-nSt+1,:);
+            Data(cnt,(max(nSt,nMin):min(nEnd,nMax))-max(nSt,nMin)+nSt,:) = DataTmp(max(nSt,nMin):min(nEnd,nMax)-nSt+1,:);
             clear DataTmp distAdd
         end
         if cnt == cntMax
-            for f = 1 : length(tmpFN); dlmwrite([char(tmpFN(f)) '.tmpMF'],Data(:,:,f),'-append'); end
+            for f = 1 : length(tmpFN); dlmwrite([char(tmpFN(f)) '.tmpMF'],Data(:,:,f),'-append'); end;
             cntMax = min(50,len-genCnt*50); DatSiz = size(Data,2); clear Data
             Data   = NaN(cntMax,DatSiz,3);
             cnt    = 0;                                                         genCnt = genCnt+1;
         end
         cnt = cnt+1;
-        A               = char(XRead.item(0).item(1).item(7).item(0).getData);
+        [nodeNrT] = testNodeNumbersChange(strListT,nodeNrT, XRead); % check for changed node numbers for time data
+        A               = char(XRead.item(nodeNrT(1)).item(nodeNrT(2)).item(nodeNrT(3)).item(0).getData);
         time(k)         = datenum([A(1:4) '/' A(6:7) '/' A(9:10) ' ' A(12:13) ':' A(15:16) ':' A(18:19)]);
-        PT100(k,:)      = [str2double(XRead.item(0).item(1).item(11).item(5).item(0).getData),...
-                               str2double(XRead.item(0).item(1).item(11).item(7).item(0).getData)];
-        clear Read XRead child childNodes
+        % check for changed node numbers for PT100 data
+        [nodeNrP1] = testNodeNumbersChange(strListP1, nodeNrP1, XRead);         [nodeNrP2] = testNodeNumbersChange(strListP2, nodeNrP2, XRead);
+        PT100(k,:)      = [str2double(XRead.item(nodeNrP1(1)).item(nodeNrP1(2)).item(nodeNrP1(3)).item(nodeNrP1(4)).item(0).getData),...
+                               str2double(XRead.item(nodeNrP2(1)).item(nodeNrP2(2)).item(nodeNrP2(3)).item(nodeNrP2(4)).item(0).getData)];
+        clear Read XRead nodes child childNodes
         %
         waitbar(k/len,h2); waitbar((chCnt+0.99*k/len)/lenCh,h1);
     end
@@ -101,4 +116,43 @@ for z=(channels(:))'
 end
 delete(h1)
 %
+end
+
+function [nodeNr] = testNodeNumbersNaN(strList,nodeNr,nodes)
+    if any(isnan(nodeNr)); 	nodeNr = getNodeNumbers(strList,nodeNr,nodes);  end
+end
+
+function [nodeNr] = testNodeNumbersChange(strList,nodeNr,nodes)
+    cmp = false;     node = nodes;
+    for n = 1 : length(nodeNr)
+        keyword = char(strList(n));
+        node = node.getChildNodes.item(nodeNr(n)); nodeName = char(node.getNodeName);
+        cmp = ~strcmpi(nodeName(max(1,end-length(keyword)+1):end),keyword);        
+        if cmp == true
+            nodeNr = getNodeNumbers(strList,nodeNr,nodes);  warning('XML file format was changed');
+            break
+        end        
+    end
+end
+
+function [nodeNr] = getNodeNumbers(strList,nodeNr,nodes)
+    nodeCh = nodes.getFirstChild;
+    nodeName = char(nodeCh.getNodeName);
+    for n = 1:length(strList);
+        keyword = char(strList(n));
+        for k = 0 : nodes.getLength - 1
+            if strcmpi(nodeName(max(1,end-length(keyword)+1):end),keyword)
+                nodeNr(n)= k;                           nodes    = nodes.item(k).getChildNodes;
+                nodeCh   = nodes.getFirstChild;         nodeName = char(nodeCh.getNodeName);
+                % right node found -> break loop and continue with finding string on child level
+                break
+            else
+                % right node not found -> try next node on this level
+                nodeCh   = nodeCh.getNextSibling;       nodeName = char(nodeCh.getNodeName);
+            end
+            if k==nodes.getLength-1; warning('XML format unknown.');
+                error('Please investigate the XML structure for the right node names or contact this script''s author to solve the problem.');
+            end
+        end
+    end
 end
