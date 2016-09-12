@@ -1,7 +1,7 @@
-% loadUltimaData (v2)
-% 27/11/2015
+% loadUltimaData (v3)
+% 12/09/2016
 %
-% Author: Koen Hilgersom (2015)
+% Author: Koen Hilgersom (2012)
 %
 % This script assists running the different scripts developed to load,
 % correct, and plot the data saved by the Silixa Ultima. It provides the
@@ -10,7 +10,7 @@
 % provides a misleading view on your dataset).
 %
 %---------------------------------------------------------------------------  
-%      Copyright (C) 2015 Technische Universiteit Delft, 
+%      Copyright (C) 2016 Technische Universiteit Delft, 
 %          Koen Hilgersom
 %          K.P.Hilgersom@tudelft.nl (correspondence)
 % 
