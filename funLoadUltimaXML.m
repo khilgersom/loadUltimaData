@@ -1,4 +1,4 @@
-function funLoadUltimaXML_v6(mainDir,channels,timeCorr,xRan)
+function funLoadUltimaXML(mainDir,channels,timeCorr,xRan)
 % funLoadUltimaXML (v6) (suitable for all known Ultima software versions)
 % 12/09/2016
 %
