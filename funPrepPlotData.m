@@ -18,10 +18,10 @@ function funPrepPlotData(mainDir,channels,q1,q2,q3)
 %---------------------------------------------------------------------------  
 
 for z=(channels(:))'
-    dist = []; time = []; Temp = []; Sto = []; ASto = []; PT100 = [];
+    Dist = []; time = []; Temp = []; Sto = []; ASto = []; PT100 = [];
     load([mainDir filesep 'channel ' num2str(z) ]);
     funPrepData
-    switch q2; case 'y'; save([mainDir filesep 'channel ' num2str(z) '_filled'],'dist','Temp','Sto','ASto','time','PT100'); end
+    switch q2; case 'y'; save([mainDir filesep 'channel ' num2str(z) '_filled'],'Dist','Temp','Sto','ASto','time','PT100'); end
     switch q1; case 'y'; q4 = 'n'; while q4 ~= 'y'; funPlotData; 
                             q4 = input('Satisfied with the current plot? (y/n) ','s'); end; end
 end
@@ -94,7 +94,7 @@ function funPlotData
 %---------------------------------------------------------------------------  
 
 Trange=[min(Temp(:)) max(Temp(:))];
-RanX=1:length(dist); XRan = [min(dist) max(dist)];
+RanX=1:length(Dist); XRan = [min(Dist) max(Dist)];
 RanT=1:length(time); TimeRan = [min(time) max(time)];
 
 disp(['Input plotting criteria for channel ' num2str(z) ':']);
@@ -111,7 +111,7 @@ XInp=input('Do you want to set the distance range for your plot (if not, the ful
 switch XInp
     case 'y'
         XRan = input('Distance range plot? ([X1 X2]): ');
-        RanX = dist>XRan(1)&dist<XRan(end);
+        RanX = Dist>XRan(1)&Dist<XRan(end);
 end
 TempInp=input('Do you want to set the temperature range for your plot (if not, the full temperature range is used)? (y/n) ','s'); 
 switch TempInp
@@ -123,9 +123,9 @@ TempReg=Temp(RanT,RanX);
 %% colorplot
 figure(z)
 clf; fitOnScreen(gcf); colormap(jet(256));
-imagesc(dist(RanX),time(RanT),TempReg,Trange)
+imagesc(Dist(RanX),time(RanT),TempReg,Trange)
 set(gca,'XLim',XRan);%([0 500]));
-set(gca,'XTick',0:XRes:ceil(max(dist(RanX))));
+set(gca,'XTick',0:XRes:ceil(max(Dist(RanX))));
 set(gca,'YLim',TimeRan);
 set(gca,'YTick',ceil(TimeRes*time(1))/TimeRes:1/TimeRes:time(end));
 datetick('y','HH:MM','keeplimits','keepticks');
